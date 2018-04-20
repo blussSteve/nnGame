@@ -2,11 +2,14 @@ package com.lhyone.nn.enums;
 
 public enum NnTimeTaskEnum {
 	
-	USER_REDAY(0,"准备"),
-	GRAB_LANDLORD(1,"抢庄"),
-	FARMER_DOUBLEX(2,"闲家加倍"),
-	SHOW_CARD_RESULT(3,"明牌操作"),
-	SHOW_CARD_RESULT_REDAY(4,"名牌准备");
+	USER_REDAY(1,"准备"),
+	GRAB_LANDLORD(2,"抢庄"),
+	FARMER_DOUBLEX(3,"闲家加倍"),
+	SHOW_CARD_RESULT(4,"明牌操作"),
+	SHOW_CARD_RESULT_REDAY(5,"名牌准备"),
+	USER_MATCH_END_REDAY(6,"比赛结束后准备"),
+	LISTEN_TIME(7,"时间监听器"),
+	UNDEINDED(99,"未定义");
 	private int code;
 	private String desc;
 	

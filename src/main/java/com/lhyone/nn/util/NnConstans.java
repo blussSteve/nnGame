@@ -67,6 +67,8 @@ public class NnConstans {
 	/**牛牛用户线程锁，防止高并发用*/
 	public static final String NN_USER_LOCK_REQ="nn_user_lock";
 	
+	public static final String NN_CLOSE_ROOM_LOCK_REQ="nn_close_room_lock";
+	
 	/**牛牛防止并发缓存*/
 	public static final String NN_USER_THREAD_LOCK_CACHE_PRE="nn_user_thread_cache";
 	
@@ -75,4 +77,6 @@ public class NnConstans {
 	
 	/**牛牛代理商收益*/
 	public static final String NN_ROOM_USER_RNK="nn_room_user_rank_cache:";
+	/**系统当前时间*/
+	public static final String NN_SYS_CUR_TIME_CACHE="nn_sys_cur_time";
 }

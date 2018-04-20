@@ -38,7 +38,15 @@ public class NnManagerDao {
 
 		return _instance;
 	}
-
+	/**
+	 * 获取牛牛房间
+	 * @return
+	 */
+	public List<NnRoom> queryNnRoom(int port){
+		String sql="SELECT * FROM nn_room t WHERE t.room_type=2 AND t.room_status=1 AND t.server_id=(SELECT t1.id FROM sys_service t1 WHERE t1.port=? AND t1.service_type="+GameTypeEnum.NIU_NIU.getType()+")";
+		List<NnRoom> list=DbUtil.getInstance().getList(NnRoom.class, sql, new Object[]{port});
+		return list;
+	}
 	/**
 	 * 获取翻倍规则
 	 * 
@@ -96,7 +104,7 @@ public class NnManagerDao {
 	 * @return
 	 */
 	public BugUser getBugUser(String uids) {
-		String sql = "SELECT * FROM bug_user t WHERE t.user_id IN(" + uids + ") AND t.status=1 AND game_type=1 ORDER BY RAND() LIMIT 1";
+		String sql = "SELECT * FROM bug_user t WHERE t.user_id IN(" + uids + ") AND t.status=1 AND game_type="+GameTypeEnum.NIU_NIU.getType()+" ORDER BY RAND() LIMIT 1";
 		BugUser user = DbUtil.getInstance().getOne(BugUser.class, sql, null);
 
 		return user;

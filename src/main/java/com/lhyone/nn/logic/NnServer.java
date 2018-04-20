@@ -1,6 +1,11 @@
 package com.lhyone.nn.logic;
 
+import java.util.concurrent.TimeUnit;
+
+import com.lhyone.nn.enums.NnTimeTaskEnum;
+import com.lhyone.nn.logic.handler.MyTimerTask;
 import com.lhyone.nn.logic.handler.NnDealHandler;
+import com.lhyone.nn.logic.handler.ServerManager;
 import com.lhyone.nn.pb.NnBean;
 
 import io.netty.bootstrap.ServerBootstrap;
@@ -25,6 +30,7 @@ import io.netty.util.internal.logging.Log4J2LoggerFactory;
 public class NnServer {
     public static void main(String[] args)  throws Exception{
     	InternalLoggerFactory.setDefaultFactory(new Log4J2LoggerFactory());
+    	ServerManager.executorTask.scheduleWithFixedDelay(new MyTimerTask(null,NnTimeTaskEnum.LISTEN_TIME.getCode()), 0, 200, TimeUnit.MILLISECONDS);
         EventLoopGroup bossGroup = new NioEventLoopGroup();
         EventLoopGroup workerGroup = new NioEventLoopGroup();
         try{

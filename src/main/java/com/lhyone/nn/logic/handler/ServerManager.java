@@ -1,6 +1,11 @@
 package com.lhyone.nn.logic.handler;
 
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -16,6 +21,8 @@ import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.util.concurrent.GlobalEventExecutor;
 
 public class ServerManager {
+	 public final static ScheduledExecutorService executorTask = Executors.newScheduledThreadPool(10);
+	 public final static ThreadPoolExecutor executor = new ThreadPoolExecutor(0, Integer.MAX_VALUE, 60L, TimeUnit.SECONDS, new SynchronousQueue<Runnable>());
 	 public final static ChannelGroup channels = new DefaultChannelGroup(GlobalEventExecutor.INSTANCE);
 	 private static Logger logger = LogManager.getLogger(ServerManager.class);
 	

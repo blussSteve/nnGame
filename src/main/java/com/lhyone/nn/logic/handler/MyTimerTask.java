@@ -2,6 +2,8 @@ package com.lhyone.nn.logic.handler;
 
 import java.util.Set;
 
+import org.apache.commons.lang3.RandomUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -12,11 +14,10 @@ import com.lhyone.nn.enums.NnRspCodeEnum;
 import com.lhyone.nn.enums.NnRspMsgTypeEnum;
 import com.lhyone.nn.enums.NnTimeTaskEnum;
 import com.lhyone.nn.enums.NnUserRoleEnum;
-import com.lhyone.nn.enums.NnWrokEnum;
 import com.lhyone.nn.enums.NnYesNoEnum;
-import com.lhyone.nn.enums.NumEnum;
 import com.lhyone.nn.pb.NnBean;
 import com.lhyone.nn.pb.NnBean.ReqMsg;
+import com.lhyone.nn.util.LocalCacheUtil;
 import com.lhyone.nn.util.NnConstans;
 import com.lhyone.nn.util.NnUtil;
 import com.lhyone.nn.vo.GameTimoutVo;
@@ -27,11 +28,9 @@ public class MyTimerTask implements Runnable{
 		
 	private NnBean.ReqMsg reqMsg;
 	private int type;
-	private long startTime;
-	public MyTimerTask(NnBean.ReqMsg reqMsg,int type,long startTime){
+	public MyTimerTask(NnBean.ReqMsg reqMsg,int type){
 		this.reqMsg=reqMsg;
 		this.type=type;
-		this.startTime=startTime;
 	}
 	
 	public void run() {
@@ -45,12 +44,16 @@ public class MyTimerTask implements Runnable{
 		
 		//标识位
 		boolean flag=false;
-		if(NnTimeTaskEnum.USER_REDAY.getCode()==type){
-			
-			 String time=RedisUtil.hget(NnConstans.NN_ROOM_USER_REDAY_TIME_PRE+reqMsg.getRoomNo(), reqMsg.getUserId()+"");
-			
+		
+		if(NnTimeTaskEnum.LISTEN_TIME.getCode()==type){
+			RedisUtil.set(NnConstans.NN_SYS_CUR_TIME_CACHE, System.currentTimeMillis()+"");
+		}else{
+			GameTimoutVo time=getGameTimoutVo(reqMsg);
+			if(NnTimeTaskEnum.USER_REDAY.getCode()==type){
+				GameTimoutVo timeVo= getUserTimeVo(reqMsg.getRoomNo(), reqMsg.getUserId()+"");
+				int restTime=getRedayTime(reqMsg.getRoomNo(), reqMsg.getUserId()+"");
 			 //判断当前定时是否超时，主要是为了防止定时器重复
-			 if(time==null||startTime!=Long.parseLong(time)||!isRunTimer(Long.parseLong(time), type)){
+			 if(timeVo==null||timeVo.getRestTimeType()!=type){
 			   logger.info("准备倒计时失效...");
 			   return;
 		    }
@@ -61,19 +64,62 @@ public class MyTimerTask implements Runnable{
 				return ;
 				
 			}
+			if(LocalCacheUtil.hexist(NnConstans.NN_CLOSE_ROOM_LOCK_REQ, reqMsg.getRoomNo()+"")){
+				synchronized (this) {
+					//剔除用户
+					JSONObject jb=new JSONObject();
+					jb.put("roomNo", reqMsg.getRoomNo());
+					jb.put("userId", reqMsg.getUserId());
+					NnManager.takeOutRoomUser(jb.toJSONString());
+				}
+			}else{
+				LocalCacheUtil.hset(NnConstans.NN_CLOSE_ROOM_LOCK_REQ, reqMsg.getRoomNo()+"", System.currentTimeMillis());
+				//剔除用户
+				JSONObject jb=new JSONObject();
+				jb.put("roomNo", reqMsg.getRoomNo());
+				jb.put("userId", reqMsg.getUserId());
+				NnManager.takeOutRoomUser(jb.toJSONString());
+			}
+			
+			
+			
+		}else if(NnTimeTaskEnum.USER_MATCH_END_REDAY.getCode()==type){
+			GameTimoutVo timeVo= getUserTimeVo(reqMsg.getRoomNo(), reqMsg.getUserId()+"");
+		 //判断当前定时是否超时，主要是为了防止定时器重复
+		 if(timeVo==null||timeVo.getRestTimeType()!=type){
+		   logger.info("准备倒计时失效...");
+		   return;
+	    }
+			
+		NnBean.UserInfo.Builder userInfo=NnManager.getCurUser(reqMsg.getUserId(),reqMsg.getRoomNo());
+		
+		if(userInfo.getIsreday()==NnYesNoEnum.YES.getCode()){//如果已准备
+			return ;
+			
+		}
+		if(LocalCacheUtil.hexist(NnConstans.NN_CLOSE_ROOM_LOCK_REQ, reqMsg.getRoomNo()+"")){
+			synchronized (this) {
+				Thread.sleep(3, RandomUtils.nextInt(3, 500));
+				//剔除用户
+				JSONObject jb=new JSONObject();
+				jb.put("roomNo", reqMsg.getRoomNo());
+				jb.put("userId", reqMsg.getUserId());
+				NnManager.takeOutRoomUser(jb.toJSONString());
+			}
+		}else{
+			LocalCacheUtil.hset(NnConstans.NN_CLOSE_ROOM_LOCK_REQ, reqMsg.getRoomNo()+"", System.currentTimeMillis());
 			//剔除用户
 			JSONObject jb=new JSONObject();
 			jb.put("roomNo", reqMsg.getRoomNo());
 			jb.put("userId", reqMsg.getUserId());
 			NnManager.takeOutRoomUser(jb.toJSONString());
-			
 		}
-		//如果是抢庄的定时器
-		if(NnTimeTaskEnum.GRAB_LANDLORD.getCode()==type){
+		
+		
+		
+	}else if(NnTimeTaskEnum.GRAB_LANDLORD.getCode()==type&&time.getRestTimeType()==type){//如果是抢庄的定时器
 			
-			  //判断当前定时是否超时，主要是为了防止定时器重复
-			   GameTimoutVo gameTimoutVo=getGameTimoutVo(reqMsg);
-			   if(gameTimoutVo==null||startTime!=gameTimoutVo.getLandlordTime()||!isRunTimer(gameTimoutVo.getLandlordTime(), type)){
+			   if(time.getRestTimeType()!=type){
 				   logger.info("抢庄倒计时失效...");
 				   return;
 			   }
@@ -130,13 +176,10 @@ public class MyTimerTask implements Runnable{
 				}
 				
 			
-		}
-		
-		if(NnTimeTaskEnum.FARMER_DOUBLEX.getCode()==type){
+		}else if(NnTimeTaskEnum.FARMER_DOUBLEX.getCode()==type&&time.getRestTimeType()==type){
 			
 			//判断当前定时是否超时，主要是为了防止定时器重复
-			GameTimoutVo gameTimoutVo=getGameTimoutVo(reqMsg);
-			if(gameTimoutVo==null||startTime!=gameTimoutVo.getFarmerTime()||!isRunTimer(gameTimoutVo.getFarmerTime(), type)){
+			if(time.getRestTimeType()!=type){
 				logger.info("闲家加倍倒计时失效....");
 				return;
 			}
@@ -182,17 +225,8 @@ public class MyTimerTask implements Runnable{
 			}
 			
 			
-		}
-		//名牌倒计时
-		if(NnTimeTaskEnum.SHOW_CARD_RESULT.getCode()==type){
+		}else if(NnTimeTaskEnum.SHOW_CARD_RESULT.getCode()==type&&time.getRestTimeType()==type){//名牌倒计时
 			
-			//判断当前定时是否超时，主要是为了防止定时器重复
-			GameTimoutVo gameTimoutVo=getGameTimoutVo(reqMsg);
-			if(gameTimoutVo==null||startTime!=gameTimoutVo.getShowMatchResultTime()||!isRunTimer(gameTimoutVo.getShowMatchResultTime(), type)){
-				logger.info("名牌倒计时失效....");
-				return;
-				
-			}
 			
 			//只有当前状态在名牌阶段才能调用此接口
 			String curStaus=RedisUtil.hget(NnConstans.NN_ROOM_CUR_STATUS_PRE, reqMsg.getRoomNo());
@@ -236,13 +270,48 @@ public class MyTimerTask implements Runnable{
 				
 			}
 			
+		}else if(NnTimeTaskEnum.SHOW_CARD_RESULT_REDAY.getCode()==type&&time.getRestTimeType()==type){//名牌准备倒计时
+			
+			Set<String> allUser=NnManager.getAllMatchUserSet(reqMsg.getRoomNo());
+			String sysTimeStr=RedisUtil.get(NnConstans.NN_SYS_CUR_TIME_CACHE);
+			long sysTime=0;
+			if(!StringUtils.isEmpty(sysTimeStr)){
+				sysTime=Long.parseLong(sysTimeStr);
+			}
+			
+			//剔除用户
+			JSONObject jb=new JSONObject();
+			jb.put("roomNo", reqMsg.getRoomNo());
+			
+			for(String key:allUser){
+				
+				String timeStr=RedisUtil.hget(NnConstans.NN_ROOM_USER_REDAY_TIME_PRE+reqMsg.getRoomNo(),key);
+				if(StringUtils.isEmpty(timeStr)){
+					continue;
+				}
+				
+				int redayTime = (int) (NnConstans.USER_RDAY_TIME - (sysTime - Long.parseLong(timeStr)) / 1000);
+				System.out.println(redayTime);
+			
+				//剔除用户
+				if(1>=redayTime){
+					NnBean.UserInfo.Builder curUser=NnManager.getCurUser(Long.parseLong(key), reqMsg.getRoomNo());
+					if(curUser.getIsreday()==NnYesNoEnum.NO.getCode()){
+						jb.put("userId",key);
+						NnManager.takeOutRoomUser(jb.toJSONString());
+					}
+				}
+				
+			}
+		}
 		}
 		}catch(Exception e){
+			System.out.println(e.getMessage());
 			logger.info(e.getMessage(),e);
 			e.printStackTrace();
 		}
-		
 	}
+	
 	
 	/**
 	 * 获取游戏超时时间
@@ -250,7 +319,9 @@ public class MyTimerTask implements Runnable{
 	 * @return
 	 */
 	private static GameTimoutVo getGameTimoutVo(ReqMsg reqMsg){
-		
+		if(null==reqMsg){
+			return null;
+		}
 		String str=RedisUtil.hget(NnConstans.NN_REST_TIME_PRE, reqMsg.getRoomNo());
 		
 		if(str!=null){
@@ -258,7 +329,35 @@ public class MyTimerTask implements Runnable{
 		}
 		return null;
 	}
+	/**
+	 * 获取准备倒计时
+	 * 
+	 * @param reqMsg
+	 * @return
+	 */
+	private static int getRedayTime(String roomNo, String userId) {
+		String sysTimeStr=RedisUtil.get(NnConstans.NN_SYS_CUR_TIME_CACHE);
+		long sysTime=Long.parseLong(sysTimeStr);
+		int redayTime = 0;
+		if (RedisUtil.hexists(NnConstans.NN_REST_TIME_PRE + roomNo, userId)) {
+			String str = RedisUtil.hget(NnConstans.NN_REST_TIME_PRE + roomNo, userId);
+			GameTimoutVo time=JSONObject.parseObject(str, GameTimoutVo.class);
+			redayTime = (int) (NnConstans.USER_RDAY_TIME - (sysTime -time.getRestTime()) / 1000);
+			if (redayTime <= 0) {
+				redayTime = 0;
+			}
+		}
+		return redayTime;
+	}
+
 	
+	private static GameTimoutVo getUserTimeVo(String roomNo,String userId){
+		String str = RedisUtil.hget(NnConstans.NN_REST_TIME_PRE + roomNo, userId);
+		if(StringUtils.isEmpty(str)){
+			return null;
+		}
+		return JSONObject.parseObject(str, GameTimoutVo.class);
+	}
 	
 	private static boolean isRunTimer(long time,int type){
 		
