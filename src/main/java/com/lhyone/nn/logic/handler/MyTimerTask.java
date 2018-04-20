@@ -28,9 +28,11 @@ public class MyTimerTask implements Runnable{
 		
 	private NnBean.ReqMsg reqMsg;
 	private int type;
-	public MyTimerTask(NnBean.ReqMsg reqMsg,int type){
+	private long timestamp;
+	public MyTimerTask(NnBean.ReqMsg reqMsg,int type,long timestamp){
 		this.reqMsg=reqMsg;
 		this.type=type;
+		this.timestamp=timestamp;
 	}
 	
 	public void run() {
@@ -51,9 +53,8 @@ public class MyTimerTask implements Runnable{
 			GameTimoutVo time=getGameTimoutVo(reqMsg);
 			if(NnTimeTaskEnum.USER_REDAY.getCode()==type){
 				GameTimoutVo timeVo= getUserTimeVo(reqMsg.getRoomNo(), reqMsg.getUserId()+"");
-				int restTime=getRedayTime(reqMsg.getRoomNo(), reqMsg.getUserId()+"");
 			 //判断当前定时是否超时，主要是为了防止定时器重复
-			 if(timeVo==null||timeVo.getRestTimeType()!=type){
+			 if(timeVo==null||timeVo.getRestTimeType()!=type||timeVo.getRestTime()!=timestamp){
 			   logger.info("准备倒计时失效...");
 			   return;
 		    }
@@ -86,7 +87,7 @@ public class MyTimerTask implements Runnable{
 		}else if(NnTimeTaskEnum.USER_MATCH_END_REDAY.getCode()==type){
 			GameTimoutVo timeVo= getUserTimeVo(reqMsg.getRoomNo(), reqMsg.getUserId()+"");
 		 //判断当前定时是否超时，主要是为了防止定时器重复
-		 if(timeVo==null||timeVo.getRestTimeType()!=type){
+		 if(timeVo==null||timeVo.getRestTimeType()!=type||timeVo.getRestTime()!=timestamp){
 		   logger.info("准备倒计时失效...");
 		   return;
 	    }
@@ -99,7 +100,7 @@ public class MyTimerTask implements Runnable{
 		}
 		if(LocalCacheUtil.hexist(NnConstans.NN_CLOSE_ROOM_LOCK_REQ, reqMsg.getRoomNo()+"")){
 			synchronized (this) {
-				Thread.sleep(3, RandomUtils.nextInt(3, 500));
+				Thread.sleep(200, RandomUtils.nextInt(200, 500));
 				//剔除用户
 				JSONObject jb=new JSONObject();
 				jb.put("roomNo", reqMsg.getRoomNo());
@@ -118,8 +119,8 @@ public class MyTimerTask implements Runnable{
 		
 		
 	}else if(NnTimeTaskEnum.GRAB_LANDLORD.getCode()==type&&time.getRestTimeType()==type){//如果是抢庄的定时器
-			
-			   if(time.getRestTimeType()!=type){
+			   GameTimoutVo timeVo= getGameTimoutVo(reqMsg);
+			   if(time.getRestTimeType()!=type||timeVo.getRestTime()!=timestamp){
 				   logger.info("抢庄倒计时失效...");
 				   return;
 			   }
@@ -177,9 +178,9 @@ public class MyTimerTask implements Runnable{
 				
 			
 		}else if(NnTimeTaskEnum.FARMER_DOUBLEX.getCode()==type&&time.getRestTimeType()==type){
-			
+			GameTimoutVo timeVo= getGameTimoutVo(reqMsg);
 			//判断当前定时是否超时，主要是为了防止定时器重复
-			if(time.getRestTimeType()!=type){
+			if(time.getRestTimeType()!=type||timeVo.getRestTime()!=timestamp){
 				logger.info("闲家加倍倒计时失效....");
 				return;
 			}
@@ -227,7 +228,12 @@ public class MyTimerTask implements Runnable{
 			
 		}else if(NnTimeTaskEnum.SHOW_CARD_RESULT.getCode()==type&&time.getRestTimeType()==type){//名牌倒计时
 			
+			GameTimoutVo timeVo= getGameTimoutVo(reqMsg);
 			
+			if(timeVo.getRestTime()!=timestamp){
+				logger.info("执行名牌倒计时失效......");
+				return;
+			}
 			//只有当前状态在名牌阶段才能调用此接口
 			String curStaus=RedisUtil.hget(NnConstans.NN_ROOM_CUR_STATUS_PRE, reqMsg.getRoomNo());
 			
@@ -271,6 +277,13 @@ public class MyTimerTask implements Runnable{
 			}
 			
 		}else if(NnTimeTaskEnum.SHOW_CARD_RESULT_REDAY.getCode()==type&&time.getRestTimeType()==type){//名牌准备倒计时
+			
+			GameTimoutVo timeVo= getGameTimoutVo(reqMsg);
+			
+			if(timeVo.getRestTime()!=timestamp){
+				logger.info("执行名牌倒准备计时失效......");
+				return;
+			}
 			
 			Set<String> allUser=NnManager.getAllMatchUserSet(reqMsg.getRoomNo());
 			String sysTimeStr=RedisUtil.get(NnConstans.NN_SYS_CUR_TIME_CACHE);
@@ -329,26 +342,6 @@ public class MyTimerTask implements Runnable{
 		}
 		return null;
 	}
-	/**
-	 * 获取准备倒计时
-	 * 
-	 * @param reqMsg
-	 * @return
-	 */
-	private static int getRedayTime(String roomNo, String userId) {
-		String sysTimeStr=RedisUtil.get(NnConstans.NN_SYS_CUR_TIME_CACHE);
-		long sysTime=Long.parseLong(sysTimeStr);
-		int redayTime = 0;
-		if (RedisUtil.hexists(NnConstans.NN_REST_TIME_PRE + roomNo, userId)) {
-			String str = RedisUtil.hget(NnConstans.NN_REST_TIME_PRE + roomNo, userId);
-			GameTimoutVo time=JSONObject.parseObject(str, GameTimoutVo.class);
-			redayTime = (int) (NnConstans.USER_RDAY_TIME - (sysTime -time.getRestTime()) / 1000);
-			if (redayTime <= 0) {
-				redayTime = 0;
-			}
-		}
-		return redayTime;
-	}
 
 	
 	private static GameTimoutVo getUserTimeVo(String roomNo,String userId){
@@ -359,27 +352,5 @@ public class MyTimerTask implements Runnable{
 		return JSONObject.parseObject(str, GameTimoutVo.class);
 	}
 	
-	private static boolean isRunTimer(long time,int type){
-		
-		long curTime=System.currentTimeMillis();
-		long diffTime=Math.abs((curTime-time)/1000);
-		long timer=0;
-		
-		if(NnTimeTaskEnum.USER_REDAY.getCode()==type){
-			timer=NnConstans.USER_RDAY_TIME;
-		}else if(NnTimeTaskEnum.GRAB_LANDLORD.getCode()==type){
-			timer=NnConstans.GRAB_LANDLORD_TIME;
-		}else if(NnTimeTaskEnum.FARMER_DOUBLEX.getCode()==type){
-			timer=NnConstans.FARMER_TIME;
-		}else if(NnTimeTaskEnum.SHOW_CARD_RESULT.getCode()==type){
-			timer=NnConstans.SHOW_MATCH_TIME;
-		}
-		
-		//延迟两秒
-		if(diffTime<(timer+2)){
-			return true;
-		}
-		return false;
-	}
 
 }

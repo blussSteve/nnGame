@@ -19,6 +19,8 @@ public class UserCacheVo  implements Serializable{
 	private long lastLoginTime;
 	
 	private String mark;
+	
+	private int gender;
 
 	public long getUserId() {
 		return userId;
@@ -74,6 +76,14 @@ public class UserCacheVo  implements Serializable{
 
 	public void setMark(String mark) {
 		this.mark = mark;
+	}
+
+	public int getGender() {
+		return gender;
+	}
+
+	public void setGender(int gender) {
+		this.gender = gender;
 	}
 	
 	

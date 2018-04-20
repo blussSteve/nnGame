@@ -246,7 +246,7 @@ public class NnManager {
 			uinfo.setUserId(reqMsg.getUserId());
 			uinfo.setNickName(uv.getUserName());//
 			uinfo.setHeadUrl(uv.getHeadImgUrl());//
-			uinfo.setGender(1);
+			uinfo.setGender(uv.getGender());
 			uinfo.setMark(uv.getMark());
 			uinfo.setPosition(getPostion(reqMsg.getUserId(), reqMsg.getRoomNo()));// 设置位置信息
 			uinfo.setRoomNo(reqMsg.getRoomNo());
@@ -265,7 +265,7 @@ public class NnManager {
 				timeVo.setRestTimeType(NnTimeTaskEnum.USER_REDAY.getCode());
 				RedisUtil.hset(NnConstans.NN_REST_TIME_PRE+ reqMsg.getRoomNo(),reqMsg.getUserId()+"", JSONObject.toJSONString(timeVo));
 				long userRedayTime = timeVo.getRestTime();
-				ServerManager.executorTask.schedule(new MyTimerTask(reqMsg, NnTimeTaskEnum.USER_REDAY.getCode()), NnConstans.USER_RDAY_TIME, TimeUnit.SECONDS);
+				ServerManager.executorTask.schedule(new MyTimerTask(reqMsg, NnTimeTaskEnum.USER_REDAY.getCode(),timeVo.getRestTime()), NnConstans.USER_RDAY_TIME, TimeUnit.SECONDS);
 				userRedayTime = getRedayTime(reqMsg.getRoomNo(), String.valueOf(reqMsg.getUserId()));
 				uinfo.setRedayTime((int) userRedayTime);
 			}
@@ -381,7 +381,14 @@ public class NnManager {
 		}
 		return redayTime;
 	}
-
+	private static GameTimoutVo getUserTimeVo(String roomNo,String userId){
+		String str = RedisUtil.hget(NnConstans.NN_REST_TIME_PRE + roomNo, userId);
+		if(StringUtils.isEmpty(str)){
+			return null;
+		}
+		return JSONObject.parseObject(str, GameTimoutVo.class);
+	}
+	
 	/**
 	 * 批量加入房间推送
 	 * 
@@ -706,7 +713,7 @@ public class NnManager {
 				timeout.setRestTimeType(NnTimeTaskEnum.GRAB_LANDLORD.getCode());
 
 				RedisUtil.hset(NnConstans.NN_REST_TIME_PRE, reqMsg.getRoomNo(), JSONObject.toJSONString(timeout));
-				ServerManager.executorTask.schedule(new MyTimerTask(reqMsg, NnTimeTaskEnum.GRAB_LANDLORD.getCode()), NnConstans.GRAB_LANDLORD_TIME, TimeUnit.SECONDS);
+				ServerManager.executorTask.schedule(new MyTimerTask(reqMsg, NnTimeTaskEnum.GRAB_LANDLORD.getCode(),timeout.getRestTime()), NnConstans.GRAB_LANDLORD_TIME, TimeUnit.SECONDS);
 
 			}
 
@@ -1001,7 +1008,7 @@ public class NnManager {
 				timeout.setRestTime(System.currentTimeMillis());
 				timeout.setRestTimeType(NnTimeTaskEnum.FARMER_DOUBLEX.getCode());
 				RedisUtil.hset(NnConstans.NN_REST_TIME_PRE, reqMsg.getRoomNo(), JSONObject.toJSONString(timeout));
-				ServerManager.executorTask.schedule(new MyTimerTask(reqMsg, NnTimeTaskEnum.FARMER_DOUBLEX.getCode()), NnConstans.FARMER_TIME, TimeUnit.SECONDS);
+				ServerManager.executorTask.schedule(new MyTimerTask(reqMsg, NnTimeTaskEnum.FARMER_DOUBLEX.getCode(),timeout.getRestTime()), NnConstans.FARMER_TIME, TimeUnit.SECONDS);
 			}
 			
 
@@ -1281,7 +1288,7 @@ public class NnManager {
 				timeout.setRestTimeType(NnTimeTaskEnum.SHOW_CARD_RESULT.getCode());
 				RedisUtil.hset(NnConstans.NN_REST_TIME_PRE, reqMsg.getRoomNo(), JSONObject.toJSONString(timeout));
 				// 增加明牌倒计时
-				ServerManager.executorTask.schedule(new MyTimerTask(reqMsg, NnTimeTaskEnum.SHOW_CARD_RESULT.getCode()), NnConstans.SHOW_MATCH_TIME, TimeUnit.SECONDS);
+				ServerManager.executorTask.schedule(new MyTimerTask(reqMsg, NnTimeTaskEnum.SHOW_CARD_RESULT.getCode(),timeout.getRestTime()), NnConstans.SHOW_MATCH_TIME, TimeUnit.SECONDS);
 				
 
 				// 发送最后一张牌
@@ -1820,7 +1827,7 @@ public class NnManager {
 				u.setRedayTime(NnConstans.USER_RDAY_TIME);
 				NnBean.ReqMsg.Builder newReqMsg=NnBean.ReqMsg.newBuilder().setUserId(u.getUserId()).setRoomNo(reqMsg.getRoomNo());
 				
-				ServerManager.executorTask.schedule(new MyTimerTask(newReqMsg.build(), NnTimeTaskEnum.USER_MATCH_END_REDAY.getCode()), NnConstans.USER_RDAY_TIME, TimeUnit.SECONDS);
+				ServerManager.executorTask.schedule(new MyTimerTask(newReqMsg.build(), NnTimeTaskEnum.USER_MATCH_END_REDAY.getCode(),timeVo.getRestTime()), NnConstans.USER_RDAY_TIME, TimeUnit.SECONDS);
 				RedisUtil.hset(NnConstans.NN_ROOM_USER_INFO_PRE + reqMsg.getRoomNo(), key, JsonFormat.printToString(u.build()));
 
 			}
@@ -2501,15 +2508,15 @@ public class NnManager {
 			
 			if(timeVo.getRestTimeType()==NnTimeTaskEnum.GRAB_LANDLORD.getCode()){
 				// 增加个人准备倒计时
-				ServerManager.executorTask.schedule(new MyTimerTask(reqMsg.build(), NnTimeTaskEnum.GRAB_LANDLORD.getCode()),restTime, TimeUnit.SECONDS);
+				ServerManager.executorTask.schedule(new MyTimerTask(reqMsg.build(), NnTimeTaskEnum.GRAB_LANDLORD.getCode(),timeVo.getRestTime()),restTime, TimeUnit.SECONDS);
 				
 			}else if(timeVo.getRestTimeType()==NnTimeTaskEnum.FARMER_DOUBLEX.getCode()){
 				
-				ServerManager.executorTask.schedule(new MyTimerTask(reqMsg.build(), NnTimeTaskEnum.FARMER_DOUBLEX.getCode()), restTime, TimeUnit.SECONDS);
+				ServerManager.executorTask.schedule(new MyTimerTask(reqMsg.build(), NnTimeTaskEnum.FARMER_DOUBLEX.getCode(),timeVo.getRestTime()), restTime, TimeUnit.SECONDS);
 				
 			}else if(timeVo.getRestTimeType()==NnTimeTaskEnum.SHOW_CARD_RESULT.getCode()){
 				
-				ServerManager.executorTask.schedule(new MyTimerTask(reqMsg.build(), NnTimeTaskEnum.SHOW_CARD_RESULT.getCode()), restTime, TimeUnit.SECONDS);
+				ServerManager.executorTask.schedule(new MyTimerTask(reqMsg.build(), NnTimeTaskEnum.SHOW_CARD_RESULT.getCode(),timeVo.getRestTime()), restTime, TimeUnit.SECONDS);
 				
 			}
 			
@@ -2518,8 +2525,10 @@ public class NnManager {
 			for(String uid:allUserSet){
 				NnBean.ReqMsg.Builder newReqMsg=NnBean.ReqMsg.newBuilder();
 				reqMsg.setRoomNo(roomNo);
+				
+				GameTimoutVo utimeVo= getUserTimeVo(reqMsg.getRoomNo(), reqMsg.getUserId()+"");
 				int redayTime=getRedayTime(roomNo, uid);
-				ServerManager.executorTask.schedule(new MyTimerTask(newReqMsg.build(), NnTimeTaskEnum.USER_MATCH_END_REDAY.getCode()),redayTime, TimeUnit.SECONDS);
+				ServerManager.executorTask.schedule(new MyTimerTask(newReqMsg.build(), NnTimeTaskEnum.USER_MATCH_END_REDAY.getCode(),utimeVo.getRestTime()),redayTime, TimeUnit.SECONDS);
 			} 
 			
 		} catch (Exception e) {
