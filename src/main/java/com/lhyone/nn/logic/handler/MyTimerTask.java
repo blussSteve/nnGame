@@ -2,7 +2,6 @@ package com.lhyone.nn.logic.handler;
 
 import java.util.Set;
 
-import org.apache.commons.lang3.RandomUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -85,38 +84,24 @@ public class MyTimerTask implements Runnable{
 			
 			
 		}else if(NnTimeTaskEnum.USER_MATCH_END_REDAY.getCode()==type){
-			GameTimoutVo timeVo= getUserTimeVo(reqMsg.getRoomNo(), reqMsg.getUserId()+"");
+			GameTimoutVo timeVo= getGameTimoutVo(reqMsg);
 		 //判断当前定时是否超时，主要是为了防止定时器重复
 		 if(timeVo==null||timeVo.getRestTimeType()!=type||timeVo.getRestTime()!=timestamp){
 		   logger.info("准备倒计时失效...");
 		   return;
 	    }
 			
-		NnBean.UserInfo.Builder userInfo=NnManager.getCurUser(reqMsg.getUserId(),reqMsg.getRoomNo());
-		
-		if(userInfo.getIsreday()==NnYesNoEnum.YES.getCode()){//如果已准备
-			return ;
-			
-		}
-		if(LocalCacheUtil.hexist(NnConstans.NN_CLOSE_ROOM_LOCK_REQ, reqMsg.getRoomNo()+"")){
-			synchronized (this) {
-				Thread.sleep(200, RandomUtils.nextInt(200, 500));
-				//剔除用户
+		Set<String> allUser= NnManager.getAllUserSet(reqMsg.getRoomNo());
+		 
+		for(String key:allUser){
+			NnBean.UserInfo.Builder curUser=NnManager.getCurUser(Long.parseLong(key), reqMsg.getRoomNo());
+			if(curUser.getIsreday()==NnYesNoEnum.NO.getCode()){
 				JSONObject jb=new JSONObject();
 				jb.put("roomNo", reqMsg.getRoomNo());
-				jb.put("userId", reqMsg.getUserId());
+				jb.put("userId", key);
 				NnManager.takeOutRoomUser(jb.toJSONString());
 			}
-		}else{
-			LocalCacheUtil.hset(NnConstans.NN_CLOSE_ROOM_LOCK_REQ, reqMsg.getRoomNo()+"", System.currentTimeMillis());
-			//剔除用户
-			JSONObject jb=new JSONObject();
-			jb.put("roomNo", reqMsg.getRoomNo());
-			jb.put("userId", reqMsg.getUserId());
-			NnManager.takeOutRoomUser(jb.toJSONString());
 		}
-		
-		
 		
 	}else if(NnTimeTaskEnum.GRAB_LANDLORD.getCode()==type&&time.getRestTimeType()==type){//如果是抢庄的定时器
 			   GameTimoutVo timeVo= getGameTimoutVo(reqMsg);

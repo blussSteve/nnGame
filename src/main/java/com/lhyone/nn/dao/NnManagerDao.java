@@ -253,11 +253,11 @@ public class NnManagerDao {
 
 				stmt.addBatch(sql5);
 
-				System.out.println(sql1);
-				System.out.println(sql2);
-				System.out.println(sql3);
-				System.out.println(sql4);
-				System.out.println(sql5);
+//				System.out.println(sql1);
+//				System.out.println(sql2);
+//				System.out.println(sql3);
+//				System.out.println(sql4);
+//				System.out.println(sql5);
 			}
 
 			int i = stmt.executeBatch().length;

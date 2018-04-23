@@ -1820,24 +1820,24 @@ public class NnManager {
 				u.setTotalGold((int)userGold);
 				
 				GameTimoutVo timeVo=new GameTimoutVo();
-				timeVo.setRestTime(System.currentTimeMillis());
+				timeVo.setRestTime(userRedayTime);
 				timeVo.setRestTimeType(NnTimeTaskEnum.USER_MATCH_END_REDAY.getCode());
 				RedisUtil.hset(NnConstans.NN_REST_TIME_PRE+reqMsg.getRoomNo(), u.getUserId()+"",JSONObject.toJSONString(timeVo));
 				
 				u.setRedayTime(NnConstans.USER_RDAY_TIME);
-				NnBean.ReqMsg.Builder newReqMsg=NnBean.ReqMsg.newBuilder().setUserId(u.getUserId()).setRoomNo(reqMsg.getRoomNo());
+//				NnBean.ReqMsg.Builder newReqMsg=NnBean.ReqMsg.newBuilder().setUserId(u.getUserId()).setRoomNo(reqMsg.getRoomNo());
 				
-				ServerManager.executorTask.schedule(new MyTimerTask(newReqMsg.build(), NnTimeTaskEnum.USER_MATCH_END_REDAY.getCode(),timeVo.getRestTime()), NnConstans.USER_RDAY_TIME, TimeUnit.SECONDS);
+//				ServerManager.executorTask.schedule(new MyTimerTask(newReqMsg.build(), NnTimeTaskEnum.USER_MATCH_END_REDAY.getCode(),timeVo.getRestTime()), NnConstans.USER_RDAY_TIME, TimeUnit.SECONDS);
 				RedisUtil.hset(NnConstans.NN_ROOM_USER_INFO_PRE + reqMsg.getRoomNo(), key, JsonFormat.printToString(u.build()));
 
 			}
 //			{
 //				// 重置展示比赛结果倒计时
-//				GameTimoutVo timeout = new GameTimoutVo();
-//				timeout.setRestTime(userRedayTime);
-//				timeout.setRestTimeType(NnTimeTaskEnum.SHOW_CARD_RESULT_REDAY.getCode());
-//				RedisUtil.hset(NnConstans.NN_REST_TIME_PRE, reqMsg.getRoomNo(), JSONObject.toJSONString(timeout));
-//				ServerManager.executorTask.schedule(new MyTimerTask(reqMsg, NnTimeTaskEnum.SHOW_CARD_RESULT_REDAY.getCode()), NnConstans.USER_RDAY_TIME, TimeUnit.SECONDS);
+				GameTimoutVo timeout = new GameTimoutVo();
+				timeout.setRestTime(userRedayTime);
+				timeout.setRestTimeType(NnTimeTaskEnum.USER_MATCH_END_REDAY.getCode());
+				RedisUtil.hset(NnConstans.NN_REST_TIME_PRE, reqMsg.getRoomNo(), JSONObject.toJSONString(timeout));
+				ServerManager.executorTask.schedule(new MyTimerTask(reqMsg, NnTimeTaskEnum.USER_MATCH_END_REDAY.getCode(),userRedayTime), NnConstans.USER_RDAY_TIME, TimeUnit.SECONDS);
 //				
 //			}
 
@@ -2041,7 +2041,7 @@ public class NnManager {
 				tx.hdel(NnConstans.NN_USER_CHANNEL_PRE, reqMsg.getUserId() + "");// 删除渠道缓存
 				tx.hdel(NnConstans.NN_BUG_USER_PRE + roomInfo.getRoomNo(), reqMsg.getUserId() + "");
 				tx.hdel(NnConstans.NN_ROOM_USER_REDAY_TIME_PRE + reqMsg.getRoomNo(), reqMsg.getUserId() + "");
-				
+				tx.hdel(NnConstans.NN_REST_TIME_PRE + reqMsg.getRoomNo(), reqMsg.getUserId() + "");
 				tx.exec();
 
 				delUserPostion(reqMsg.getUserId(), reqMsg.getRoomNo());

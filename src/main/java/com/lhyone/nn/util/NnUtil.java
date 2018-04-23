@@ -17,7 +17,7 @@ import com.lhyone.util.RedisUtil;
 public class NnUtil {
 	
 	/**庄家加注积分*/
-	private final static Integer[] LANDLORD_SCORE_MENU={1,2,3,4};
+	private final static Integer[] LANDLORD_SCORE_MENU={0,1,2,3,4};
 	/**闲家加注积分*/
 	private final static Integer[] FARMER_SCORE_MENU={2,3,4,5,6};
 	
@@ -192,7 +192,8 @@ public class NnUtil {
 	
 	
 	public static void main(String[] args) {
-		RedisUtil.sismember(NnConstans.NN_ROOM_ALL_MATCH_USER_PRE+"100000","1");
+		boolean flag=RedisUtil.exists(NnConstans.NN_ROOM_PRE + "203973");
+		System.out.println(flag);
 	}
 	
 }
